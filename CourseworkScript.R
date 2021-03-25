@@ -17,6 +17,7 @@
   library(xts)
   library(tidyverse)
   library(urca)
+  library(vars)
   
   setwd("C:/Users/Nish/OneDrive - University of Bristol/TB2/Applied Financial Econometrics/Coursework")
   bse<-read.csv("S&P BSE SENSEX.csv")
@@ -58,26 +59,28 @@
 #TAKING A DAILY AVERAGE FOR EACH MONTH TO CONVERT INTO MONTHLY DATA FOR 10 YEARS
   bse_xts<-apply.monthly(data2_xts,mean)
   
-  bselr <- merge.xts(bse_xts, bonds_xts,join = "right", fill = NA)
-  colnames(bselr)[1:3] <-c("bse","sr","lr")
+  bseND <- merge.xts(bse_xts, bonds_xts,join = "right", fill = NA)
+  colnames(bseND)[1:3] <-c("bse","sr","lr")
+  
+  
   
   rm(bse_xts,bse,data2,data2_xts,lr_xts,sr_xts,sr,lr,data,bonds_xts)
   
 #THIS FUNCTION TURNS THE SHORT RUN AND LONG RUN YIELDS INTO A SPREAD WHICH CHARACTERISES THE SLOPE OF THE YIELD CURVE. 
-  bselr$term<-bselr$lr-bselr$sr
+  bseND$term<-bseND$lr-bseND$sr
 
 #SOME BASIC PLOTS
-  plot(index(bselr),bselr$bse,type="l")
-  plot(index(bselr),bselr$sr,type="l")
-  plot(index(bselr),bselr$lr,type="l")
-  plot(index(bselr),bselr$term,type="l")
+  plot(index(bseND),bseND$bse,type="l")
+  plot(index(bseND),bseND$sr,type="l")
+  plot(index(bseND),bseND$lr,type="l")
+  plot(index(bseND),bseND$term,type="l")
 
 #STEP 1
 #RUNNING UNIT ROOT TESTS ON THE TREND 
-  adfbse<-ur.df(bselr$bse,type="trend",selectlags="AIC")
-  adfsr<-ur.df(bselr$sr,type="trend",selectlags="AIC")
-  adflr<-ur.df(bselr$lr,type="trend",selectlags="AIC")
-  adfterm<-ur.df(bselr$term,type="trend",selectlags="AIC")
+  adfbse<-ur.df(bseND$bse,type="trend",selectlags="AIC")
+  adfsr<-ur.df(bseND$sr,type="trend",selectlags="AIC")
+  adflr<-ur.df(bseND$lr,type="trend",selectlags="AIC")
+  adfterm<-ur.df(bseND$term,type="trend",selectlags="AIC")
   
 #ADF for bse
   summary(adfbse)
@@ -91,15 +94,15 @@
 
 #STEP 2
 #RUNNING A REGRESSION ON THE TREND
-  Dbse <- na.omit(diff(bselr$bse, differences=1))
-  Dsr <- na.omit(diff(bselr$sr, differences=1))
-  Dlr <- na.omit(diff(bselr$lr, differences=1))
-  Dterm <- na.omit(diff(bselr$term, differences=1))
+  Dbse <- na.omit(diff(bseND$bse, differences=1))
+  Dsr <- na.omit(diff(bseND$sr, differences=1))
+  Dlr <- na.omit(diff(bseND$lr, differences=1))
+  Dterm <- na.omit(diff(bseND$term, differences=1))
 
-  Lbse <- na.omit(stats::lag(bselr$bse, k=1))
-  Lsr <- na.omit(stats::lag(bselr$sr, k=1))
-  Llr <- na.omit(stats::lag(bselr$lr, k=1))
-  Lterm <- na.omit(stats::lag(bselr$term, k=1))
+  Lbse <- na.omit(stats::lag(bseND$bse, k=1))
+  Lsr <- na.omit(stats::lag(bseND$sr, k=1))
+  Llr <- na.omit(stats::lag(bseND$lr, k=1))
+  Lterm <- na.omit(stats::lag(bseND$term, k=1))
   
   LDbse <- na.omit(stats::lag(Dbse, k=1))
   LDsr <- na.omit(stats::lag(Dsr, k=1))
@@ -126,10 +129,10 @@
     #has been empirically proven to be DS and therefore needs strong evidence otherwise
 
 #STEP 3 
-  adfbse <- ur.df(bselr$bse, type="drift", selectlags="AIC")
-  adfsr <- ur.df(bselr$sr, type="drift", selectlags="AIC")
-  adflr <- ur.df(bselr$lr, type="drift", selectlags="AIC")
-  adfterm <- ur.df(bselr$term, type="drift", selectlags="AIC")
+  adfbse <- ur.df(bseND$bse, type="drift", selectlags="AIC")
+  adfsr <- ur.df(bseND$sr, type="drift", selectlags="AIC")
+  adflr <- ur.df(bseND$lr, type="drift", selectlags="AIC")
+  adfterm <- ur.df(bseND$term, type="drift", selectlags="AIC")
   #ADF for bse
   summary(adfbse)
   #ADF for sr
@@ -141,10 +144,10 @@
     #Non-stationary for all variables at 5% except for term variable. 
   
 #STEP 4
-  adfbse <- ur.df(bselr$bse, type="none")
-  adfsr <- ur.df(bselr$sr, type="none")
-  adflr <- ur.df(bselr$lr, type="none")
-  adfterm <- ur.df(bselr$term, type="none")
+  adfbse <- ur.df(bseND$bse, type="none")
+  adfsr <- ur.df(bseND$sr, type="none")
+  adflr <- ur.df(bseND$lr, type="none")
+  adfterm <- ur.df(bseND$term, type="none")
   #ADF for bse
   summary(adfbse)
   #ADF for sr
@@ -169,25 +172,70 @@
   
 #CALCULATING THE RETURNS FOR THE VARIABLES
   #Take logs for percentage form
-  bselr$rbse <- diff(log(bselr$bse))
-  bselr$rsr <- diff(log(bselr$sr))
-  bselr$rlr <- diff(log(bselr$lr))
-  bselr$rterm <- bselr$rlr-bselr$rsr
+  bseND$rbse <- diff(log(bseND$bse))
+  bseND$rsr <- diff(log(bseND$sr))
+  bseND$rlr <- diff(log(bseND$lr))
+  bseND$rterm <- bseND$rlr-bseND$rsr
   
-  plot(bselr$rbse, col="red") 
-  lines(bselr$rterm, col="blue")
+  rbseND <- na.omit(cbind(bseND$rbse,bseND$rsr,bseND$rlr,bseND$rterm))
   
-  vardata <- cbind(bselr$rbse, bselr$rsr, bselr$rlr, bselr$rterm)
+  plot(bseND$rbse, col="red") 
+  lines(bseND$rterm, col="blue")
+  
+  vardata <- cbind(bseND$rbse, bseND$rsr, bseND$rlr, bseND$rterm)
   vardata <- na.omit(vardata)
   
   rm(adfbse,adflr,adfsr,adfterm,Dbse,Dlr,Dsr,Dterm,Lbse,LDbse,LDlr,LDsr,LDterm,Llr,Lsr,Lterm,ttdata)
+  KeyVars <- cbind(bseND$bse,bseND$term)
+#So far we have concluded that the original data are I(1), and then I(0) as a result of taking their differences. This makes the returns
+#variables suitable for VAR modeling, however before this, it would be worthwhile to check if there exists some cointegrating relationship
+#between the the variables, before settling on a model. Do the series' share a common stochastic drift?
+  #Using a Johansen test
+  VARselect(KeyVars, lag.max=24, type = "both")
+  #Using the level variables the number of lags that minimizes the AIC using the VARselect method is 2, using a maximum lag of 24 months 
+  #and including both a trend and drift which are evident in the series' plots.
+
+#Conduct the engle granger here
+    #Engle Granger Step 1
+    Step1 <- lm(KeyVars$bse ~ KeyVars$term + c(1:length(KeyVars$bse)))
+    summary(Step1)
+    #Are the residuals stationary or not?
+    res <- Step1$residuals
+    ADFres <- ur.df(res, type="none", selectlags="AIC")
+    summary(ADFres)
+    #Reject te null at all levels - conclude that the residuals do not contain a unit root and are stationary
+    
+    #Engle Granger Step 2
+    Step2 <- lm(rbseND$rbse ~ rbseND$rterm + stats::lag(rbseND$rterm) + stats::lag(rbseND$rbse)+
+                stats::lag(rbseND$rterm, k=2) + stats::lag(rbseND$rbse, k=2)+ na.omit(stats::lag(res)))
+    summary (Step2)
+    AIC(Step2)
+    
+    
+    
+    
+    
   
-#So far we have concluded that the data are I(1), and as a result
+#The Johansen test can take 2 forms, one being trace test and maximal eigenvalue.
+  #Trace test
+    JtestTrace <- ca.jo(KeyVars, type = "trace", ecdet = "none", K = 2, spec = "transitory")
+    summary (JtestTrace)
+    JtestTrace <- ca.jo(KeyVars, type = "trace", ecdet = "const", K = 2, spec = "transitory")
+    summary (JtestTrace)  
+    JtestTrace <- ca.jo(KeyVars, type = "trace", ecdet = "trend", K = 2, spec = "transitory")
+    summary (JtestTrace)
+    rm(JtestTrace)
+  #Maximal eigenvalue
+    Jtesteigen <- ca.jo(KeyVars, type = "eigen", ecdet = "none", K = 2, spec = "transitory")
+    summary (Jtesteigen)  
+    #There exists a cointegrating relationship at the 5% level based on the eigenvalue
+    
+    rm(JtestTrace,Jtesteigen)
+    
   
-  #Engle Granger First step
   
-  EG1 <- lm(vardata$rbse ~ vardata$rterm + c(1:length(vardata$rbse)))
-  summary(EG1)
+  
+  
 
 
 
