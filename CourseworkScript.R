@@ -19,6 +19,7 @@
   library(urca)
   library(vars)
   library(tsDyn)
+  options(scipen = 999)
   
   setwd("C:/Users/Nish/OneDrive - University of Bristol/TB2/Applied Financial Econometrics/Coursework")
   bse<-read.csv("S&P BSE SENSEX.csv")
@@ -174,131 +175,126 @@
 #CALCULATING THE RETURNS FOR THE VARIABLES
   #Take logs for percentage form
   bseND$rbse <- diff(log(bseND$bse))
-  bseND$rsr <- diff(log(bseND$sr))
-  bseND$rlr <- diff(log(bseND$lr))
-  bseND$rterm <- bseND$rlr-bseND$rsr
-  
+  bseND$rsr <- log(bseND$sr)
+  bseND$rlr <- log(bseND$lr)
+  bseND$rterm <- diff(bseND$rlr-bseND$rsr)
   rbseND <- na.omit(cbind(bseND$rbse,bseND$rsr,bseND$rlr,bseND$rterm))
-  
-  plot(bseND$rbse, col="red") 
-  lines(bseND$rterm, col="blue")
-  
   vardata <- cbind(bseND$rbse, bseND$rsr, bseND$rlr, bseND$rterm)
   vardata <- na.omit(vardata)
   
+  plot(bseND$rbse, col="red") 
+  lines(bseND$rterm, col="blue")
+
   rm(adfbse,adflr,adfsr,adfterm,Dbse,Dlr,Dsr,Dterm,Lbse,LDbse,LDlr,LDsr,LDterm,Llr,Lsr,Lterm,ttdata)
-  KeyVars <- cbind(bseND$bse,bseND$term)
+  
 #So far we have concluded that the original data are I(1), and then I(0) as a result of taking their differences. This makes the returns
 #variables suitable for VAR modeling, however before this, it would be worthwhile to check if there exists some cointegrating relationship
 #between the the variables, before settling on a model. Do the series' share a common stochastic drift?
 
-#Lag selection  
-  VARselect(KeyVars, lag.max=24, type = "both")
+#Lag selection
+  eg1var <- na.omit(cbind(log(bseND$bse),bseND$rterm))
+  VARselect(eg1var, lag.max=24, type = "both")
   #Using the level variables the number of lags that minimizes the AIC using the VARselect method is 2, using a maximum lag of 24 months 
   #and including both a trend and drift which are evident in the series' plots.
 
 #Engle Granger
 #Before we consider any further cointegration analysis - we should consider doing a 2-step EG procedure, this will identify any possible
 #cointegrating relation
+    eg1var <- na.omit(cbind(log(bseND$bse),bseND$rlr-bseND$rsr))
     #Engle Granger Step 1
-    Step1 <- lm(KeyVars$bse ~ KeyVars$term + c(1:length(KeyVars$bse)))
+    Step1 <- lm(eg1var$bse ~ eg1var$rterm + c(1:length(eg1var$bse)))
     summary(Step1)
     #Are the residuals stationary or not?
     predres <- Step1$residuals
     ADFres <- ur.df(predres, type="none", selectlags="AIC")
     summary(ADFres)
     #using T^{0.25}=132^{0.25}=3 lags approx
-    ADFres <- ur.df(predres, type="none", selectlags=3)
+    ADFres <- ur.df(predres, type="none", lags=3)
     summary(ADFres)
     #Reject the null at all levels - conclude that the residuals do not contain a unit root and are stationary, and also implies there may
     #be some cointegrating relationship between the BSE SENSEX and the slope of the yield curve.
   
     #Engle Granger Step 2
     Step2 <- lm(rbseND$rbse ~ rbseND$rterm + stats::lag(rbseND$rterm) + stats::lag(rbseND$rbse)+
-                stats::lag(rbseND$rterm, k=2) + stats::lag(rbseND$rbse, k=2)+ na.omit(stats::lag(predres)))
+                stats::lag(rbseND$rterm, k=2) + stats::lag(rbseND$rbse, k=2)+ stats::lag(predres))
     summary (Step2)
     AIC(Step2)
     #Drop the second lag of term
     Step2 <- lm(rbseND$rbse ~ rbseND$rterm + stats::lag(rbseND$rterm) + stats::lag(rbseND$rbse)+
-             stats::lag(rbseND$rbse, k=2)+ na.omit(stats::lag(predres)))
+             stats::lag(rbseND$rbse, k=2)+ stats::lag(predres))
     summary (Step2)
     AIC(Step2)
     #Drop the second lag of bse
     Step2 <- lm(rbseND$rbse ~ rbseND$rterm + stats::lag(rbseND$rterm) + stats::lag(rbseND$rbse)+
-                  + na.omit(stats::lag(predres)))
+                  + stats::lag(predres))
     summary (Step2)
     AIC(Step2)
     #Drop the first lag of rterm
     Step2 <- lm(rbseND$rbse ~ rbseND$rterm + stats::lag(rbseND$rbse)+
-                  + na.omit(stats::lag(predres)))
+                  + stats::lag(predres))
     summary (Step2)
     AIC(Step2)
     #Drop the first lag of bse
-    Step2 <- lm(rbseND$rbse ~ rbseND$rterm + na.omit(stats::lag(predres)))
+    Step2 <- lm(rbseND$rbse ~ rbseND$rterm + stats::lag(predres))
     summary (Step2)
     AIC(Step2)
     #All variables are now significant - and the ecm term has interpretation 
     
+##################################################################################    
+    
+    
+    
 #The Johansen test can take 2 forms, one being trace test and maximal eigenvalue.
   #Trace test
-    JtestTrace1 <- ca.jo(KeyVars, type = "trace", ecdet = "none", K = 2, spec = "transitory")
+    JtestTrace1 <- ca.jo(KeyVars2, type = "trace", ecdet = "none", K = 2, spec = "transitory")
     summary (JtestTrace1)
     # r<=1 Cannot reject at any level
     # r=0 Reject at the 5% level
       #1 cointegrating relation
-    JtestTrace2 <- ca.jo(KeyVars, type = "trace", ecdet = "const", K = 2, spec = "transitory")
+    JtestTrace2 <- ca.jo(KeyVars2, type = "trace", ecdet = "const", K = 2, spec = "transitory")
     summary (JtestTrace2)
     # r<=1 Cannot reject at any level
     # r=0 Reject at the 5% level
       #1 cointegrating relation
-    JtestTrace3 <- ca.jo(KeyVars, type = "trace", ecdet = "trend", K = 2, spec = "transitory")
+    JtestTrace3 <- ca.jo(KeyVars2, type = "trace", ecdet = "trend", K = 2, spec = "transitory")
     summary (JtestTrace3)
-    # r<=1 Reject at all levels
+    # r<=1 Reject at 5%
     # r=0 Reject at all levels
       #This may favour a situation of no cointegrating relationship.
 
   #Maximal eigenvalue
-    Jtesteigen <- ca.jo(KeyVars, type = "eigen", ecdet = "none", K = 2, spec = "transitory")
+    Jtesteigen <- ca.jo(KeyVars2, type = "eigen", ecdet = "none", K = 2, spec = "transitory")
     summary (Jtesteigen)  
     # r<=1 Cannot reject at any level
     # r=0 Reject at the 5% level
       #1 cointegrating relation
 
 #Estimating the VECM model
-    vecm1 <- cajorls(JtestTrace1, r=1)
-    vecm1
-    vecm2 <- cajorls(JtestTrace2, r=1)
-    vecm2
-    vecm3 <- cajorls(JtestTrace3, r=1)
-    vecm3
-    vecmeigen <- cajorls(Jtesteigen, r=1)
+    #vecm1 <- cajorls(JtestTrace1, r=1)
+    #vecm1
+    #vecm2 <- cajorls(JtestTrace2, r=1)
+    #vecm2
+    #vecm3 <- cajorls(JtestTrace3, r=1)
+    #vecm3
+    #vecmeigen <- cajorls(Jtesteigen, r=1)
+    #vecmeigen
     
-    vecm1 <- VECM(KeyVars,lag=2,r=1,include=c("both"),estim=c("ML"))
+    vecm1 <- VECM(KeyVars2,lag=2,r=1,include=c("none"),estim=c("ML"))
     summary(vecm1)
     coefs_1 <- summary(vecm1)$coefMat
     coefs_1
-    vecm2 <- VECM(KeyVars,lag=2,r=1,include=c("const"),estim=c("ML"))
+    vecm2 <- VECM(KeyVars2,lag=2,r=1,include=c("const"),estim=c("ML"))
     summary(vecm2)
     coefs_2 <- summary(vecm2)$coefMat
     coefs_2
-    vecm3 <- VECM(KeyVars,lag=2,r=1,include=c("none"),estim=c("ML"))
+    vecm3 <- VECM(KeyVars2,lag=2,r=1,include=c("trend"),estim=c("ML"))
     summary(vecm3)
     coefs_3 <- summary(vecm3)$coefMat
     coefs_3
-    vecmeigen <- VECM(KeyVars,lag=2,r=1,include=c("none"),estim=c("ML"))
-    summary(vecmeigen)
-    coefs_eigen <- summary(vecmeigen)$coefMat
-    coefs_eigen
     
-    EG2 <- lm(diff(KeyVars$bse) ~ diff(KeyVars$term) + stats::lag(diff(KeyVars$bse)) + 
-                stats::lag(diff(KeyVars$bse),k=2) +stats::lag(predres))
+    EG2 <- lm(diff(KeyVars2$bse) ~ diff(KeyVars2$term) + stats::lag(diff(KeyVars2$bse)) + 
+                stats::lag(diff(KeyVars2$bse),k=2) +stats::lag(predres))
     summary(EG2)
-    
-    
-    
-
-
-
 
   
   
