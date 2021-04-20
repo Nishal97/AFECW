@@ -127,14 +127,24 @@
 #STEP 4
   adfslope <- ur.df(dataND$slope, type="none")
   summary(adfslope)
+<<<<<<< HEAD
     #Cannot reject the null and therefore conclude that the series is difference stationary
+=======
+  #Cannot reject the null and therefore conclude that the series is difference stationary
+>>>>>>> da71493671877571530c0b4b4103aa657e589973
   
   #Check for unit root after taking the first difference of the slope variable
   adfDslope <- ur.df(na.omit(diff(dataND$slope)), type="drift", selectlags="AIC")
   summary(adfDslope)
+<<<<<<< HEAD
     #We can conclude that, the first difference is stationary and therefore slope is integrated of order 1
     # returns ~ I(0)
     #   slope ~ I(1)
+=======
+  #We can conclude that, the first difference is stationary and therefore slope is integrated of order 1
+  # returns ~ I(0)
+  #   slope ~ I(1)
+>>>>>>> da71493671877571530c0b4b4103aa657e589973
   rm(adfreturns,adfslope,adfDslope,Dslope,LDslope,Lslope)
   
 ###############################################################################
@@ -147,11 +157,16 @@
   colnames(varND)[2]<- c('Dslope')
   
   VARselect(varND, lag.max=12, type = "both")
+<<<<<<< HEAD
     #Based on the VARselect function the minimum lag length suggested by the AIC is 3 lags
+=======
+  #Based on the VARselect function the minimum lag length suggested by the AIC is 3 lags
+>>>>>>> da71493671877571530c0b4b4103aa657e589973
   
   VARmodel <- VAR(y = varND, lag.max=12, ic="AIC")
   summary(VARmodel)
   coef(VARmodel)
+<<<<<<< HEAD
 #Forecast
   varfc <- predict(VARmodel, n.ahead = 12, ci = 0.95, dumvar = NULL)
   plot(varfc)
@@ -178,14 +193,49 @@
     #The null of normality is rejected for all levels - which implies that the VAR error term is highly likely to be non-normally distributed.
     #As a result there are likely to be some misspecification in the VAR model.
     
+=======
+  #Forecast
+  varfc <- predict(VARmodel, n.ahead = 12, ci = 0.95, dumvar = NULL)
+  plot(varfc)
+  #Impulse Response Function
+  irf <- irf(VARmodel, impulse="returns", response=c("Dslope"))
+  plot(irf)
+  #Variance Decomposition
+  vardec <- fevd(VARmodel, n.ahead=12)
+  vardec
+  #Granger Causality Test
+  causality(VARmodel, cause="Dslope")$Granger
+  causality(VARmodel, cause="returns")$Granger
+  #The conclusions drawn from the granger causality test tell us that whilst the change in the slope of the yield curve do not granger cause
+  #returns, the opposite is a different case, there is a strong statistical significance in the impact of returns upon the change in the slope 
+  #of the yield curve.
+
+#VAR DIAGNOSTICS
+  serial.test(VARmodel, type = "BG")
+  #The Breusch-Godfrey serial correlation test suggests that there is no serial correlation in residuals at all levels
+  serial.test(VARmodel, type = "PT.adjusted")
+  #Adjusting for a small sample, the Portmanteau test confirms the result above albeit with stronger significance of the null
+  
+  normality.test(VARmodel, multivariate.only = TRUE)
+  #The null of normality is rejected for all levels - which implies that the VAR error term is highly likely to be non-normally distributed.
+  #As a result there are likely to be some misspecification in the VAR model.
+  
+>>>>>>> da71493671877571530c0b4b4103aa657e589973
   VARparamstab <- stability(VARmodel)
   plot(VARparamstab)
   
   arch.test(VARmodel,lags.multi=1, multivariate.only=TRUE)
+<<<<<<< HEAD
     #Results of the ARCH test show that the null of no ARCH effect is rejected, so there is likely some heteroscedasticity in the data.
     
 #The results from the analysis above show that the VAR model may not be the best model for this situation, this is due to the heteroskedasticity
 #in the error term and the subsequent non-normality that arises from that.
+=======
+  #Results of the ARCH test show that the null of no ARCH effect is rejected, so there is likely some heteroscedasticity in the data.
+  
+#The results from the analysis above show that the VAR model may not be the best model for this situation, this is due to the heteroskedasticity
+#in the error term and the subsequential non-normality that arises from that.
+>>>>>>> da71493671877571530c0b4b4103aa657e589973
   
   
   
