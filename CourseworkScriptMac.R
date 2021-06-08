@@ -1,11 +1,3 @@
-#the ten year period from 01/2010 to 12/2020, the term structure has been computed using the spread between 15-year
-#My analysis is to measure the relationship between the BSE SENSEX index prices and the change in the term structure over 
-#and 1-year bond yields. My intuition is supported by the the fact that as the term structure increases this represents
-#a widening in yields, implying that longer term bonds yield more than short term bonds and as such an increase in yield
-#is driven by a decrease in their price and vice versa. During times of uncertainty and/or low confidence bond yields should
-#drop as investors substitute their equity for safer investments and market forces drive the prices of bonds up and again vice versa
-#This analysis will show the relationship (or lack of) between these two variables using VAR methods.
-
 #DATA SOURCES
   #https://uk.investing.com/rates-bonds/india-1-year-bond-yield
   #https://uk.investing.com/rates-bonds/india-15-year-bond-yield
@@ -21,10 +13,12 @@ library(vars)
 library(tsDyn)
 library(coefplot)
 library(lubridate)
+library(lmtest)
+library(scales)
 options(scipen = 999)
 
-setwd("/Users/nishaldave/OneDrive - University of Bristol/TB2/Applied Financial Econometrics/Coursework")
-# setwd("C:/Users/Nish/OneDrive - University of Bristol/TB2/Applied Financial Econometrics/Coursework")
+
+setwd("C:/Users/Nish/OneDrive - University of Bristol/TB2/Applied Financial Econometrics/Coursework")
 bse<-read.csv("S&P BSE SENSEX.csv")
 sr<-read.csv("1yr Historical Bond Data India.csv")
 lr<-read.csv("15yr Historical Bond Data India.csv")
@@ -34,40 +28,40 @@ lr<-read.csv("15yr Historical Bond Data India.csv")
 #DATA PROCESSING/FORMATTING
 bse$Close<-as.numeric(as.character(bse$Close))
 bse$Date<-as.Date(bse$Date,"%d/%m/%Y")
-sr$Date<-as.Date(sr$Date,"%B %d, %Y")
-lr$Date<-as.Date(lr$Date,"%B %d, %Y")
+sr$Date<-as.Date(sr$ï..Date,"%B %d, %Y")
+lr$Date<-as.Date(lr$ï..Date,"%B %d, %Y")
   
 #PROCESSING BONDS 
-data <- merge(sr, lr, join = "right")
-data <- data.frame(sr=data$X1yr,
-                 lr=data$X15yr,
-                 Date = data$Date,
-                 year = as.numeric(format(data$Date, format = "%Y")),
-                 month = as.numeric(format(data$Date, format = "%m")),
-                 day = as.numeric(format(data$Date, format = "%d")))
-data$ym <- as.yearmon(paste(data$year, data$month), "%Y %m")
-sr_xts <- xts(data$sr, data$ym)
-lr_xts <-xts(data$lr, data$ym)
+NDdata <- merge(sr, lr, join = "right")
+NDdata <- data.frame(sr=NDdata$X1yr,
+                 lr=NDdata$X15yr,
+                 Date = NDdata$Date,
+                 year = as.numeric(format(NDdata$Date, format = "%Y")),
+                 month = as.numeric(format(NDdata$Date, format = "%m")),
+                 day = as.numeric(format(NDdata$Date, format = "%d")))
+NDdata$ym <- as.yearmon(paste(NDdata$year, NDdata$month), "%Y %m")
+sr_xts <- xts(NDdata$sr, NDdata$ym)
+lr_xts <-xts(NDdata$lr, NDdata$ym)
 sr_xts<-apply.monthly(sr_xts,mean)
 lr_xts<-apply.monthly(lr_xts,mean)
 bonds_xts <- merge(sr_xts, lr_xts, join = "right")
   
 #PROCESSING INDEX VALUES
-data2 <- data.frame(bse=bse$Close,
+NDdata2 <- data.frame(bse=bse$Close,
                   Date = bse$Date,
                   year = as.numeric(format(bse$Date, format = "%Y")),
                   month = as.numeric(format(bse$Date, format = "%m")),
                   day = as.numeric(format(bse$Date, format = "%d")))
 
-data2$ym <- as.yearmon(paste(data2$year, data2$month), "%Y %m")
-data2_xts <- xts(data2$bse, data2$ym)
+NDdata2$ym <- as.yearmon(paste(NDdata2$year, NDdata2$month), "%Y %m")
+NDdata2_xts <- xts(NDdata2$bse, NDdata2$ym)
 #TAKING A DAILY AVERAGE FOR EACH MONTH TO CONVERT INTO MONTHLY DATA FOR 10 YEARS
-bse_xts<-apply.monthly(data2_xts,mean)
+bse_xts<-apply.monthly(NDdata2_xts,mean)
 
 bseND <- merge.xts(bse_xts, bonds_xts,join = "right", fill = NA)
 colnames(bseND)[1:3] <-c("bse","sr","lr")
 
-rm(bse_xts,bse,data2,data2_xts,lr_xts,sr_xts,sr,lr,data,bonds_xts)
+rm(bse_xts,bse,NDdata2,NDdata2_xts,lr_xts,sr_xts,sr,lr,NDdata,bonds_xts)
 #Now that the data is cleaned - any further transformations can be applied.
 #Before any transformation is applied - taking logs provides a monotonic transformation to our variables of interest.
 lbseND <- log(bseND)
@@ -79,105 +73,137 @@ lbseND$slope <- lbseND$llr-lbseND$lsr
 #Combining variables of interest
 dataND <- na.omit(cbind(lbseND$rlbse,lbseND$slope))
 colnames(dataND)[1] <- c("returns")
-rm(bseND,lbseND)
+
+bseND$slope <- (bseND$lr-bseND$sr) 
+
+dataND <- dataND["/2019-12"]
+
+
+##Johansen##
+vecmdata <- cbind(bseND$bse, bseND$slope)
+VARselect(vecmdata, lag.max=12, type = "both")
+#2 lags have been determined to minimise the AIC
+
+#case 1
+Jtest1 <- ca.jo(vecmdata, type = "trace", ecdet = "none", K = 2, spec = "transitory")
+summary (Jtest1)
+#no cointegration
+
+#case 2
+Jtest1 <- ca.jo(vecmdata, type = "trace", ecdet = "const", K = 2, spec = "transitory")
+summary (Jtest1)
+#no cointegration
+
+#case 3
+Jtest1 <- ca.jo(vecmdata, type = "trace", ecdet = "trend", K = 2, spec = "transitory")
+summary (Jtest1)
+#no cointegration?
+
+rm(vecmdata)
 
 #SOME BASIC PLOTS
-(ggplot(dataND,aes(x=Index,y=returns))
+(ggplot(bseND,aes(x=Index,y=bse,color=''))
   +geom_line()
-  +xlab("Year")
-  +ylab("Returns")
+  +xlab("")
+  +ylab("BSE Price")
+  +theme(legend.position = "none")
+  +scale_y_continuous(label = comma, name ="BSE SENSEX: Monthly Average (INR)", 
+                     limits=c(15000,50000))
 )
 
-(ggplot(dataND,aes(x=Index,y=slope))
+(ggplot() + 
+  geom_line(data = bseND, aes(x = Index, y = sr), color = "red") +
+  geom_line(data = bseND, aes(x = Index, y = lr), color = "blue") +
+  xlab('') +
+  ylab('% Yield') +
+  scale_y_continuous(label = comma, name ="Bond Yields: Monthly Average (%)", 
+                      limits=c(-1,10))
+)
+
+
+(ggplot(dataND,aes(x=Index,y=returns,color=''))
   +geom_line()
-  +xlab("Year")
+  +xlab("")
+  +ylab("BSE SENSEX: Monthly Returns (%)")
+  +theme(legend.position = "none") 
+)
+
+(ggplot(dataND,aes(x=Index,y=slope,color = "blue" ))
+  +geom_line()
+  +xlab("")
   +ylab("Yield Curve Slope")
+  +scale_y_continuous(name ="Yield Curve Slope (%)", 
+                     limits=c(-0.1,0.6))
+  +theme(legend.position = "none") 
 )
-
-plot(dataND$returns, col="red",ylim=c(-0.5,0.7)) 
-lines(dataND$slope, col="blue")
 
 ###############################################################################
 ###############################################################################
 #RUNNING UNIT ROOT TESTS
-#lags are determined by T^{0.25}, where T=131, this is approximately 3 lags.
-adfreturns<-ur.df(dataND$returns,type="drift",lags=3)
-adfslope<-ur.df(dataND$slope,type="drift",lags=3)
+#lags are determined by T^{0.25}, where T=131, this is approximately k=3 lags.
+#lags determined by the minimum AIC yield a result of k=1 lags.
+
+### STEP 1 ###
+adfreturns<-ur.df(dataND$returns,type="none",selectlags="AIC")
 adfreturns<-ur.df(dataND$returns,type="drift",selectlags="AIC")
+adfreturns<-ur.df(dataND$returns,type="trend",selectlags="AIC")
+
+adfslope<-ur.df(dataND$slope,type="none",selectlags="AIC")
 adfslope<-ur.df(dataND$slope,type="drift",selectlags="AIC")
+adfslope<-ur.df(dataND$slope,type="trend",selectlags="AIC")
+#All do not reject null for slope - AIC has selected 1 lag for both variables
 
 #ADF for returns
 summary(adfreturns)
 #ADF for slope
 summary(adfslope)
-#Results show that returns are stationary, slope non-stationary
 
-rm(adfreturns,adfslope)
 
-#Unit root test on first difference of slope
-adfslope<-ur.df(na.omit(diff(dataND$slope)),type="drift",lags=3)
-adfslope<-ur.df(na.omit(diff(dataND$slope)),type="drift",selectlags="AIC")
-summary(adfslope)
-
-rm(adfslope)
-###############################################################################
-###############################################################################
-#We have now established that the series' for returns and slope are I(0) and I(1) respectively - this means we can take the
-#first difference of slope, which gives us two stationary variables to model a VAR with.
-VARND <- na.omit(cbind(dataND$returns,diff(dataND$slope)))
-  
 #VAR MODELLING
 VARselect(VARND, lag.max=12, type = "both")
 #Based on the VARselect function the minimum lag length suggested by the AIC is 3 lags
 
 
-VARmodel <- VAR(y = VARND, lag.max=12, ic="AIC")
-summary(VARmodel)
-coef(VARmodel)
-
 #Forecast
 varfc <- predict(VARmodel, n.ahead = 12, ci = 0.95, dumvar = NULL)
 plot(varfc)
+
 #Impulse Response Function
-irf <- irf(VARmodel, impulse="returns", response=c("slope"))
+irf <- irf(VARmodel, impulse="returns", response=c("slope"), n.ahead = 12)
 plot(irf)
+irf <- irf(VARmodel, impulse="slope", response=c("returns"), n.ahead = 12)
+plot(irf)
+
 #Variance Decomposition
 vardec <- fevd(VARmodel, n.ahead=12)
 vardec
+
 #Granger Causality Test
 causality(VARmodel, cause="slope")$Granger
 causality(VARmodel, cause="returns")$Granger
-#The conclusions drawn from the granger causality test tell us that whilst the change in the slope of the yield curve do not granger cause
-#returns, the opposite is a different case, there is a strong statistical significance in the impact of returns upon the change in the slope 
-#of the yield curve.
 
 #VAR DIAGNOSTICS
-serial.test(VARmodel, type = "BG")
+serial.test(VARmodel,lags.bg = 12, type = "BG")
 #The Breusch-Godfrey serial correlation test suggests that there is no serial correlation in residuals at all levels
-serial.test(VARmodel, type = "PT.adjusted")
+serial.test(VARmodel,lags.bg = 12, type = "PT.adjusted")
 #Adjusting for a small sample, the Portmanteau test confirms the result above albeit with stronger significance of the null
 
 normality.test(VARmodel, multivariate.only = TRUE)
 #The null of normality is rejected for all levels - which implies that the VAR error term is highly likely to be non-normally distributed.
-#As a result there are likely to be some misspecification in the VAR model.
 
+#Shapiro-Wilks Test
+VARresid <- resid(VARmodel)
+shapiro.test(as.vector(VARresid))
 
-VARparamstab <- stability(VARmodel)
-plot(VARparamstab)
-  
-arch.test(VARmodel,lags.multi=1, multivariate.only=TRUE)
-
-#Results of the ARCH test show that the null of no ARCH effect is rejected, so there is likely some heteroscedasticity in the data.
-  
-#The results from the analysis above show that the VAR model may not be the best model for this situation, this is due to the heteroskedasticity
-#in the error term and the subsequential non-normality that arises from that.
+#ARCH-LM test
+arch.test(VARmodel,lags.multi=12, multivariate.only=TRUE)
 
   
   
   
   
-  
-  
+
+
 
 
   
